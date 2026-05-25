@@ -1,0 +1,336 @@
+package com.example.overloadtracker.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.overloadtracker.data.WorkoutSet
+
+// --- Antrenman Programı Veritabanı ---
+data class ProgramExercise(val name: String, val restTime: String)
+
+val workoutSplits = mapOf(
+    "PUSH" to listOf(
+        ProgramExercise("Bench Press", "2.5 - 3 Dakika"),
+        ProgramExercise("Incline Press", "2 - 3 Dakika"),
+        ProgramExercise("Pec Deck Fly", "60 - 90 Saniye"),
+        ProgramExercise("Shoulder Press", "2.5 - 3 Dakika"),
+        ProgramExercise("Lateral Raise", "60 - 90 Saniye"),
+        ProgramExercise("Skull Crusher", "60 - 90 Saniye"),
+        ProgramExercise("Triceps Pushdown", "90 Saniye")
+    ),
+    "PULL" to listOf(
+        ProgramExercise("Lat Pulldown", "2 - 3 Dakika"),
+        ProgramExercise("Rope Pullover", "60 - 90 Saniye"),
+        ProgramExercise("Seated Cable Row", "2 - 3 Dakika"),
+        ProgramExercise("T-Bar Row", "2.5 - 3 Dakika"),
+        ProgramExercise("Reverse Fly", "60 - 90 Saniye"),
+        ProgramExercise("Dumbbell / Cable Curl", "60 - 90 Saniye"),
+        ProgramExercise("Hammer Curl", "60 - 90 Saniye")
+    ),
+    "LOWER" to listOf(
+        ProgramExercise("Leg Press", "2.5 - 3 Dakika"),
+        ProgramExercise("Hack Squat", "2.5 - 3 Dakika"),
+        ProgramExercise("Leg Extension", "90 Saniye"),
+        ProgramExercise("Leg Curl", "90 Saniye"),
+        ProgramExercise("Calf Raise", "60 - 90 Saniye"),
+        ProgramExercise("Karın (Leg Raise / Crunch)", "60 Saniye")
+    ),
+    "UPPER" to listOf(
+        ProgramExercise("Incline Dumbbell Press", "2.5 - 3 Dakika"),
+        ProgramExercise("Pec Deck Fly", "60 - 90 Saniye"),
+        ProgramExercise("Dumbbell Press (Omuz)", "2.5 - 3 Dakika"),
+        ProgramExercise("Lat Pulldown", "2 - 3 Dakika"),
+        ProgramExercise("Row Alternatifi", "2.5 - 3 Dakika"),
+        ProgramExercise("Lateral Raise", "60 - 90 Saniye"),
+        ProgramExercise("Triceps Pushdown", "60 - 90 Saniye"),
+        ProgramExercise("Dumbbell Curl", "60 - 90 Saniye")
+    )
+)
+
+// --- Arayüz State Sınıfları ---
+class ActiveSetState {
+    var weight by mutableStateOf("")
+    var reps by mutableStateOf("")
+}
+
+class ActiveExerciseState(val exercise: ProgramExercise) {
+    val sets = mutableStateListOf(ActiveSetState())
+}
+// ---------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ActiveWorkoutScreen(
+    viewModel: WorkoutViewModel,
+    onNavigateBack: () -> Unit
+) {
+    var selectedSplit by remember { mutableStateOf<String?>(null) }
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val activeExercises = remember { mutableStateListOf<ActiveExerciseState>() }
+
+    if (selectedSplit == null) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Antrenman Türü Seç", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                workoutSplits.keys.forEach { splitName ->
+                    Button(
+                        onClick = {
+                            selectedSplit = splitName
+                            // OTOMATİK DOLDURMA: Seçilen günün hareketlerini listeye ekle
+                            workoutSplits[splitName]?.forEach { exercise ->
+                                activeExercises.add(ActiveExerciseState(exercise))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(80.dp).padding(vertical = 8.dp),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Text(text = "$splitName GÜNÜ", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("$selectedSplit Antrenmanı", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        selectedSplit = null
+                        activeExercises.clear() // Geri basınca listeyi temizle
+                    }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { showBottomSheet = true },
+                icon = { Icon(Icons.Default.Add, contentDescription = "Egzersiz Ekle") },
+                text = { Text("Hareket Ekle") },
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            items(activeExercises) { exerciseState ->
+                ActiveExerciseCard(
+                    exerciseState = exerciseState,
+                    viewModel = viewModel,
+                    onAddSetClick = { exerciseState.sets.add(ActiveSetState()) },
+                    onRemoveExerciseClick = { activeExercises.remove(exerciseState) } // Hareketi Silme
+                )
+            }
+
+            if (activeExercises.isNotEmpty()) {
+                item {
+                    Button(
+                        onClick = {
+                            val completedSets = activeExercises.flatMap { exState ->
+                                exState.sets.filter { it.weight.isNotBlank() && it.reps.isNotBlank() }.mapIndexed { index, set ->
+                                    WorkoutSet(
+                                        sessionId = 0,
+                                        exerciseName = exState.exercise.name,
+                                        weight = set.weight.toDoubleOrNull() ?: 0.0,
+                                        reps = set.reps.toIntOrNull() ?: 0,
+                                        setNumber = index + 1 // Aradan set silinmesine karşı sıralamayı dinamik hesapla
+                                    )
+                                }
+                            }
+                            viewModel.saveActiveWorkout(completedSets)
+                            onNavigateBack()
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp).height(60.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("ANTRENMANI BİTİR", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp).padding(bottom = 32.dp)) {
+                Text("Tüm Hareketler", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // BottomSheet'te listeye ek olarak diğer günlerin hareketlerini de görebilirsin
+                val allExercises = workoutSplits.values.flatten().distinctBy { it.name }
+
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(allExercises) { exercise ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                activeExercises.add(ActiveExerciseState(exercise))
+                                showBottomSheet = false
+                            },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = exercise.name, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActiveExerciseCard(
+    exerciseState: ActiveExerciseState,
+    viewModel: WorkoutViewModel,
+    onAddSetClick: () -> Unit,
+    onRemoveExerciseClick: () -> Unit
+) {
+    var previousRecord by remember { mutableStateOf<WorkoutSet?>(null) }
+
+    LaunchedEffect(exerciseState.exercise.name) {
+        previousRecord = viewModel.getPreviousRecord(exerciseState.exercise.name)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Hareket Adı ve Silme Butonu (Çarpı)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = exerciseState.exercise.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                IconButton(onClick = onRemoveExerciseClick) {
+                    Icon(Icons.Default.Close, contentDescription = "Hareketi Sil", tint = MaterialTheme.colorScheme.secondary)
+                }
+            }
+
+            AssistChip(
+                onClick = { },
+                label = { Text(exerciseState.exercise.restTime) },
+                leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("SET", modifier = Modifier.weight(0.4f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                Text("KG", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                Text("TEKRAR", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.weight(0.4f)) // Çöp kutusu için boşluk hizalaması
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            exerciseState.sets.forEachIndexed { index, setState ->
+                SetRow(
+                    displaySetNumber = index + 1,
+                    setState = setState,
+                    previousRecord = previousRecord,
+                    onRemoveSetClick = { exerciseState.sets.remove(setState) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            TextButton(onClick = onAddSetClick, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Set Ekle")
+            }
+        }
+    }
+}
+
+@Composable
+fun SetRow(
+    displaySetNumber: Int,
+    setState: ActiveSetState,
+    previousRecord: WorkoutSet?,
+    onRemoveSetClick: () -> Unit
+) {
+    // Önceki kayıtları kutulara doğru dağıtıyoruz
+    val weightPlaceholder = previousRecord?.weight?.toString() ?: "-"
+    val repsPlaceholder = previousRecord?.reps?.toString() ?: "10"
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(text = "$displaySetNumber", modifier = Modifier.weight(0.4f), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+        OutlinedTextField(
+            value = setState.weight,
+            onValueChange = { setState.weight = it },
+            modifier = Modifier.weight(1.2f),
+            placeholder = { Text(weightPlaceholder) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
+
+        OutlinedTextField(
+            value = setState.reps,
+            onValueChange = { setState.reps = it },
+            modifier = Modifier.weight(1.2f),
+            placeholder = { Text(repsPlaceholder) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
+
+        // Yanlış eklenen seti silme butonu
+        IconButton(onClick = onRemoveSetClick, modifier = Modifier.weight(0.4f)) {
+            Icon(Icons.Default.Delete, contentDescription = "Seti Sil", tint = MaterialTheme.colorScheme.error)
+        }
+    }
+}
