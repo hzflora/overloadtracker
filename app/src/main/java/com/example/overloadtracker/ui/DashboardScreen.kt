@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.overloadtracker.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,7 +21,18 @@ fun DashboardScreen(viewModel: WorkoutViewModel, onStartWorkout: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Overload Tracker", fontWeight = FontWeight.Bold) },
+                title = {
+                    androidx.compose.foundation.layout.Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.overloadtracker.R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier.size(32.dp).padding(end = 8.dp) // Yazıyla arasına boşluk verdik
+                        )
+                        Text("Overload Tracker", fontWeight = FontWeight.Bold)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -65,11 +77,10 @@ fun DashboardScreen(viewModel: WorkoutViewModel, onStartWorkout: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.FitnessCenter,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.surfaceVariant
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.example.overloadtracker.R.drawable.logo),
+                        contentDescription = "Overload Tracker Logo",
+                        modifier = Modifier.size(80.dp) // İstersen boyutu büyütebilirsin
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(

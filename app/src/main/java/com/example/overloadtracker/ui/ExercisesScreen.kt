@@ -19,7 +19,18 @@ fun ExercisesScreen(viewModel: WorkoutViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Antrenman Programı", fontWeight = FontWeight.Bold) },
+                title = {
+                    androidx.compose.foundation.layout.Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.overloadtracker.R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier.size(32.dp).padding(end = 8.dp) // Yazıyla arasına boşluk verdik
+                        )
+                        Text("Egzersizler", fontWeight = FontWeight.Bold)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
