@@ -46,4 +46,7 @@ interface WorkoutDao {
 
     @Query("DELETE FROM workout_sets WHERE sessionId = :sessionId")
     suspend fun deleteSetsBySessionId(sessionId: Int)
+
+    @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
+    suspend fun deleteSessionById(sessionId: Int)
 }

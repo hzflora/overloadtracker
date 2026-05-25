@@ -87,6 +87,12 @@ class WorkoutViewModel(private val workoutDao: WorkoutDao) : ViewModel() {
         }
     }
 
+    fun deleteSession(sessionId: Int) {
+        viewModelScope.launch {
+            workoutDao.deleteSetsBySessionId(sessionId) // Önce içindeki setleri uçur
+            workoutDao.deleteSessionById(sessionId)     // Sonra ana oturumu uçur
+        }
+    }
     suspend fun getPreviousRecord(exerciseName: String): WorkoutSet? {
         return workoutDao.getLastRecord(exerciseName)
     }

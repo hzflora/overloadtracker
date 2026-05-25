@@ -86,6 +86,7 @@ fun ActiveWorkoutScreen(
     var currentSessionId by remember { mutableStateOf(sessionId) }
     var selectedSplit by remember { mutableStateOf<String?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
+    var showProgramDialog by remember { mutableStateOf(false) } // Egzersizleri göreceğimiz pencere için
     val activeExercises = remember { mutableStateListOf<ActiveExerciseState>() }
 
     val coroutineScope = rememberCoroutineScope()
@@ -101,16 +102,20 @@ fun ActiveWorkoutScreen(
             // Var olan Aktif Antrenmanı yükle
             val sessionData = viewModel.getSessionWithSetsOnce(currentSessionId)
             if (sessionData != null && sessionData.sets.isNotEmpty()) {
+
+                // YENİ: İlk hareketten antrenmanın türünü (PUSH, PULL vb.) tespit et
+                val firstExName = sessionData.sets.first().exerciseName
+                val detectedSplit = workoutSplits.entries.find { it.value.any { ex -> ex.name == firstExName } }?.key ?: "Antrenman"
+                selectedSplit = detectedSplit // Artık "Kaldığın Yerden Devam" yerine "PUSH" vs. yazacak
+
                 val groupedSets = sessionData.sets.groupBy { it.exerciseName }
                 groupedSets.forEach { (exerciseName, sets) ->
-                    // Hareketi listede bul, yoksa geçici oluştur
                     val exerciseDef = workoutSplits.values.flatten().find { it.name == exerciseName }
                         ?: ProgramExercise(exerciseName, "-", "-")
 
                     val activeExercise = ActiveExerciseState(exerciseDef)
-                    activeExercise.sets.clear() // Gelen varsayılan 1 boş seti sil
+                    activeExercise.sets.clear()
 
-                    // Veritabanındaki setleri kutulara doldur
                     sets.sortedBy { it.setNumber }.forEach { dbSet ->
                         val activeSet = ActiveSetState().apply {
                             weight = if (dbSet.weight > 0) dbSet.weight.toString() else ""
@@ -120,7 +125,6 @@ fun ActiveWorkoutScreen(
                     }
                     activeExercises.add(activeExercise)
                 }
-                selectedSplit = "Kaldığın Yerden Devam" // Seçim ekranını atla
             }
             isLoading = false
         }
@@ -167,6 +171,7 @@ fun ActiveWorkoutScreen(
                             Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
                         }
                     }
+                    // BURADA Egzersizler butonu OLMAYACAK
                 )
             }
         ) { paddingValues ->
@@ -197,10 +202,16 @@ fun ActiveWorkoutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("$selectedSplit", fontWeight = FontWeight.Bold) },
+                title = { Text("$selectedSplit Antrenmanı", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { saveProgressAndExit(false) }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Kaydet ve Çık")
+                    }
+                },
+                // EGZERSİZLER BUTONU BURADA OLMALI
+                actions = {
+                    TextButton(onClick = { showProgramDialog = true }) {
+                        Text("Egzersizler", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -251,17 +262,20 @@ fun ActiveWorkoutScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp).padding(bottom = 32.dp)) {
-                Text("Tüm Hareketler", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("$selectedSplit Hareketleri", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // BottomSheet'te listeye ek olarak diğer günlerin hareketlerini de görebilirsin
-                val allExercises = workoutSplits.values.flatten().distinctBy { it.name }
+                // YENİ: Tüm hareketler yerine sadece o günün (selectedSplit) hareketlerini çekiyoruz
+                val currentExercises = workoutSplits[selectedSplit] ?: emptyList()
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(allExercises) { exercise ->
+                    items(currentExercises) { exercise ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                activeExercises.add(ActiveExerciseState(exercise))
+                                // Eğer hareket zaten listede yoksa ekle
+                                if (activeExercises.none { it.exercise.name == exercise.name }) {
+                                    activeExercises.add(ActiveExerciseState(exercise))
+                                }
                                 showBottomSheet = false
                             },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -274,6 +288,35 @@ fun ActiveWorkoutScreen(
                 }
             }
         }
+    }
+
+    // 2. İsteğin: Sayfa kapanmadan o günün programını liste halinde görsün
+    if (showProgramDialog) {
+        AlertDialog(
+            onDismissRequest = { showProgramDialog = false },
+            title = { Text("$selectedSplit Programı", fontWeight = FontWeight.Bold) },
+            text = {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val programExercises = workoutSplits[selectedSplit] ?: emptyList()
+                    items(programExercises) { ex ->
+                        Column {
+                            Text(text = "• ${ex.name}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Set: ${ex.setsAndReps}  |  Dinlenme: ${ex.restTime}",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(start = 12.dp, top = 2.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showProgramDialog = false }) {
+                    Text("Kapat")
+                }
+            }
+        )
     }
 }
 

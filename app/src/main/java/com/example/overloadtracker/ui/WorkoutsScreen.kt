@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -83,31 +85,67 @@ fun WorkoutsScreen(viewModel: WorkoutViewModel, onNavigateToWorkout: (Int) -> Un
                         val totalVolume = sessionWithSets.sets.sumOf { it.weight * it.reps }
                         val totalSets = sessionWithSets.sets.size
 
+                        // YENİ: Antrenman Türünü (Split) Tespit Etme Mantığı
+                        val firstExerciseName = sessionWithSets.sets.firstOrNull()?.exerciseName
+                        val detectedSplit = if (firstExerciseName != null) {
+                            // workoutSplits haritasından bu hareketin hangi güne ait olduğunu buluyoruz
+                            val splitKey = workoutSplits.entries.find { it.value.any { ex -> ex.name == firstExerciseName } }?.key
+                            if (splitKey != null) "$splitKey Antrenmanı" else "Serbest Antrenman"
+                        } else {
+                            "Boş Antrenman" // Eğer henüz hiç set girilmediyse
+                        }
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    // Karta tıklandığında ilgili oturumun ID'sini gönderiyoruz
                                     onNavigateToWorkout(sessionWithSets.session.id)
                                 },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(text = dateString, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Toplam Hacim: $totalVolume kg  |  Tamamlanan Set: $totalSets",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                                // Aktif sekmesindeysek karta yönlendirici bir metin ekleyelim
-                                if (selectedTabIndex == 0) {
-                                    Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Sol Taraf: Bilgiler
+                                Column(modifier = Modifier.weight(1f)) {
+                                    // YENİ: Başlık Olarak Antrenman Türü
                                     Text(
-                                        text = "Devam Etmek İçin Dokun ➔",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        text = detectedSplit,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 18.sp,
                                         color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // Tarih ve Diğer Bilgiler
+                                    Text(text = dateString, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Toplam Hacim: $totalVolume kg  |  Set: $totalSets",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                    if (selectedTabIndex == 0) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "Devam Etmek İçin Dokun ➔",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+
+                                // Sağ Taraf: Silme Butonu
+                                IconButton(
+                                    onClick = { viewModel.deleteSession(sessionWithSets.session.id) }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Antrenmanı Sil",
+                                        tint = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
