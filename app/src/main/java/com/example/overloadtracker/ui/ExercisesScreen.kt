@@ -57,13 +57,22 @@ fun ExercisesScreen(viewModel: WorkoutViewModel) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = exercise.name,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            // İsim ve Set Bilgisini bir sütuna aldık
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = exercise.name,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                // Set ve Tekrar bilgisi burada:
+                                Text(
+                                    text = exercise.setsAndReps, // Modelindeki değişken ismi neyse onu yaz (sets, reps vb.)
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
 
-                            // Dinlenme Süresi Rozeti
+                            // Dinlenme Süresi Rozeti sağda kalmaya devam edecek
                             AssistChip(
                                 onClick = { },
                                 label = { Text(exercise.restTime, fontSize = 12.sp) },

@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [Exercise::class, WorkoutSession::class, WorkoutSet::class],
     version = 1,
-    exportSchema = false
+    exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -26,10 +26,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "overload_database"
+                    "overload_database",
                 )
-                    // İleride veritabanı şemasını değiştirirsek (version artarsa) eski verilerin silinmemesi için kurallar buraya eklenir.
-                    // Şimdilik basit tutuyoruz.
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
 
                 INSTANCE = instance

@@ -22,44 +22,44 @@ import androidx.compose.ui.unit.sp
 import com.example.overloadtracker.data.WorkoutSet
 
 // --- Antrenman Programı Veritabanı ---
-data class ProgramExercise(val name: String, val restTime: String)
+data class ProgramExercise(val name: String, val setsAndReps: String, val restTime: String)
 
 val workoutSplits = mapOf(
     "PUSH" to listOf(
-        ProgramExercise("Bench Press", "2.5 - 3 Dakika"),
-        ProgramExercise("Incline Press", "2 - 3 Dakika"),
-        ProgramExercise("Pec Deck Fly", "60 - 90 Saniye"),
-        ProgramExercise("Shoulder Press", "2.5 - 3 Dakika"),
-        ProgramExercise("Lateral Raise", "60 - 90 Saniye"),
-        ProgramExercise("Skull Crusher", "60 - 90 Saniye"),
-        ProgramExercise("Triceps Pushdown", "90 Saniye")
+        ProgramExercise("Bench Press", "2+2 x 10", "2.5 - 3 Dakika"),
+        ProgramExercise("Incline Press","3 x 10", "2 - 3 Dakika"),
+        ProgramExercise("Pec Deck Fly","3 x Failure", "60 - 90 Saniye"),
+        ProgramExercise("Shoulder Press","1+3 x Failure", "2.5 - 3 Dakika"),
+        ProgramExercise("Lateral Raise","3 x 12", "60 - 90 Saniye"),
+        ProgramExercise("Skull Crusher","3 x 10", "60 - 90 Saniye"),
+        ProgramExercise("Triceps Pushdown","2 x Drop", "90 Saniye")
     ),
     "PULL" to listOf(
-        ProgramExercise("Lat Pulldown", "2 - 3 Dakika"),
-        ProgramExercise("Rope Pullover", "60 - 90 Saniye"),
-        ProgramExercise("Seated Cable Row", "2 - 3 Dakika"),
-        ProgramExercise("T-Bar Row", "2.5 - 3 Dakika"),
-        ProgramExercise("Reverse Fly", "60 - 90 Saniye"),
-        ProgramExercise("Dumbbell / Cable Curl", "60 - 90 Saniye"),
-        ProgramExercise("Hammer Curl", "60 - 90 Saniye")
+        ProgramExercise("Lat Pulldown", "2+2 x 10", "2 - 3 Dakika"),
+        ProgramExercise("Rope Pullover","3 x 10", "60 - 90 Saniye"),
+        ProgramExercise("Seated Cable Row","3 x 10", "2 - 3 Dakika"),
+        ProgramExercise("T-Bar Row","1+2 x Failure", "2.5 - 3 Dakika"),
+        ProgramExercise("Reverse Fly","3 x 10", "60 - 90 Saniye"),
+        ProgramExercise("Dumbbell / Cable Curl","3 x Failure", "60 - 90 Saniye"),
+        ProgramExercise("Hammer Curl", "3 x 10","60 - 90 Saniye")
     ),
     "LOWER" to listOf(
-        ProgramExercise("Leg Press", "2.5 - 3 Dakika"),
-        ProgramExercise("Hack Squat", "2.5 - 3 Dakika"),
-        ProgramExercise("Leg Extension", "90 Saniye"),
-        ProgramExercise("Leg Curl", "90 Saniye"),
-        ProgramExercise("Calf Raise", "60 - 90 Saniye"),
-        ProgramExercise("Karın (Leg Raise / Crunch)", "60 Saniye")
+        ProgramExercise("Leg Press","2+2 x 10", "2.5 - 3 Dakika"),
+        ProgramExercise("Hack Squat","2 x 12", "2.5 - 3 Dakika"),
+        ProgramExercise("Leg Extension","2 x Failure", "90 Saniye"),
+        ProgramExercise("Leg Curl","2 x Failure", "90 Saniye"),
+        ProgramExercise("Calf Raise","2 x Failure", "60 - 90 Saniye"),
+        ProgramExercise("Karın (Leg Raise / Crunch)","3 x Failure", "60 Saniye")
     ),
     "UPPER" to listOf(
-        ProgramExercise("Incline Dumbbell Press", "2.5 - 3 Dakika"),
-        ProgramExercise("Pec Deck Fly", "60 - 90 Saniye"),
-        ProgramExercise("Dumbbell Press (Omuz)", "2.5 - 3 Dakika"),
-        ProgramExercise("Lat Pulldown", "2 - 3 Dakika"),
-        ProgramExercise("Row Alternatifi", "2.5 - 3 Dakika"),
-        ProgramExercise("Lateral Raise", "60 - 90 Saniye"),
-        ProgramExercise("Triceps Pushdown", "60 - 90 Saniye"),
-        ProgramExercise("Dumbbell Curl", "60 - 90 Saniye")
+        ProgramExercise("Incline Dumbbell Press","2+2 x Failure", "2.5 - 3 Dakika"),
+        ProgramExercise("Pec Deck Fly","3 x Failure", "60 - 90 Saniye"),
+        ProgramExercise("Dumbbell Press (Omuz)","2 x Failure", "2.5 - 3 Dakika"),
+        ProgramExercise("Lat Pulldown","1+2 x 10", "2 - 3 Dakika"),
+        ProgramExercise("Row Alternatifi","1+2 x Failure", "2.5 - 3 Dakika"),
+        ProgramExercise("Lateral Raise","3 x 12", "60 - 90 Saniye"),
+        ProgramExercise("Triceps Pushdown","3 x 10", "60 - 90 Saniye"),
+        ProgramExercise("Dumbbell Curl","3 x 10", "60 - 90 Saniye")
     )
 )
 
