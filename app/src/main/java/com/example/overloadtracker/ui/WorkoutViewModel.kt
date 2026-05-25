@@ -2,12 +2,14 @@ package com.example.overloadtracker.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.overloadtracker.data.SessionWithSets
 import com.example.overloadtracker.data.WorkoutDao
 import com.example.overloadtracker.data.WorkoutSession
 import com.example.overloadtracker.data.WorkoutSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -21,12 +23,13 @@ class WorkoutViewModel(private val workoutDao: WorkoutDao) : ViewModel() {
     }
 
     private fun loadDashboardData() {
-        // 1. Son Antrenman Tarihi ve Geçmiş Listesini Güncelleme
         viewModelScope.launch {
             workoutDao.getAllSessionsWithSets().collect { sessionList ->
-                val lastDateStr = if (sessionList.isNotEmpty()) {
+                // Ana ekranda sadece bitmiş antrenmanların tarihini gösterelim
+                val completedSessions = sessionList.filter { it.session.isCompleted }
+                val lastDateStr = if (completedSessions.isNotEmpty()) {
                     val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("tr"))
-                    dateFormat.format(java.util.Date(sessionList.first().session.date))
+                    dateFormat.format(java.util.Date(completedSessions.first().session.date))
                 } else {
                     "Antrenman bulunamadı"
                 }
@@ -40,10 +43,8 @@ class WorkoutViewModel(private val workoutDao: WorkoutDao) : ViewModel() {
             }
         }
 
-        // 2. Haftalık Toplam Hacmi (Volume) Hesaplama
         viewModelScope.launch {
             val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
-
             workoutDao.getWeeklyVolume(sevenDaysAgo).collect { volume ->
                 _uiState.update { currentState ->
                     currentState.copy(totalVolumeThisWeek = volume ?: 0.0)
@@ -52,28 +53,40 @@ class WorkoutViewModel(private val workoutDao: WorkoutDao) : ViewModel() {
         }
     }
 
-    // Antrenman bittiğinde verileri kaydeder
-    fun saveActiveWorkout(activeSets: List<WorkoutSet>) {
-        viewModelScope.launch {
-            if (activeSets.isEmpty()) return@launch
+    // 1. Yeni ve boş bir aktif antrenman başlatıp ID'sini döner
+    suspend fun createNewSession(): Int {
+        val newSession = WorkoutSession(
+            date = System.currentTimeMillis(),
+            bodyWeight = null,
+            notes = null,
+            isCompleted = false
+        )
+        return workoutDao.insertSession(newSession).toInt()
+    }
 
-            val newSession = WorkoutSession(
-                date = System.currentTimeMillis(),
-                bodyWeight = null,
-                notes = null
-            )
-            val sessionId = workoutDao.insertSession(newSession).toInt()
+    // 2. Yarım kalan antrenmanı ekrana yüklemek için bir kereye mahsus veriyi çeker
+    suspend fun getSessionWithSetsOnce(sessionId: Int): SessionWithSets? {
+        return workoutDao.getSessionWithSetsById(sessionId).firstOrNull()
+    }
 
-            activeSets.forEach { uiSet ->
-                if (uiSet.reps > 0) {
-                    val finalSet = uiSet.copy(sessionId = sessionId)
-                    workoutDao.insertSet(finalSet)
-                }
+    // 3. İlerlemeyi veya Biten Antrenmanı kaydeder
+    suspend fun saveProgress(sessionId: Int, activeSets: List<WorkoutSet>, isFinished: Boolean) {
+        // Önce bu oturuma ait eski set kayıtlarını siliyoruz ki aynı setler çiftlenmesin
+        workoutDao.deleteSetsBySessionId(sessionId)
+
+        // Güncel setleri veritabanına yazıyoruz
+        activeSets.forEach { uiSet ->
+            if (uiSet.reps > 0) {
+                workoutDao.insertSet(uiSet)
             }
+        }
+
+        // Eğer kullanıcı "Bitir" butonuna bastıysa oturumu tamamla
+        if (isFinished) {
+            workoutDao.markSessionAsCompleted(sessionId)
         }
     }
 
-    // Antrenman anında silik renkle görünecek geçmiş rekoru getirir
     suspend fun getPreviousRecord(exerciseName: String): WorkoutSet? {
         return workoutDao.getLastRecord(exerciseName)
     }

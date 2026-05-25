@@ -13,16 +13,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute // Gerekli import
 
 @Composable
 fun MainScreen(viewModel: WorkoutViewModel) {
     val navController = rememberNavController()
 
-    // Navigasyonun anlık durumunu dinliyoruz (Hangi sayfadayız?)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Alt menüyü sadece Aktif Antrenman ekranında DEĞİLSEK göster
     val showBottomBar = currentDestination?.hasRoute(Screen.ActiveWorkout::class) != true
 
     Scaffold(
@@ -40,14 +39,14 @@ fun MainScreen(viewModel: WorkoutViewModel) {
                         icon = { Icon(Icons.Default.Home, contentDescription = "Dashboard") }
                     )
                     NavigationBarItem(
-                        selected = currentDestination?.hasRoute(Screen.History::class) == true,
+                        selected = currentDestination?.hasRoute(Screen.Workouts::class) == true, // History -> Workouts yapıldı
                         onClick = {
-                            navController.navigate(Screen.History) {
+                            navController.navigate(Screen.Workouts) {
                                 popUpTo(Screen.Dashboard)
                             }
                         },
-                        label = { Text("Geçmiş") },
-                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Geçmiş") }
+                        label = { Text("Antrenmanlar") }, // Etiket güncellendi
+                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Antrenmanlar") }
                     )
                     NavigationBarItem(
                         selected = currentDestination?.hasRoute(Screen.Exercises::class) == true,
@@ -71,22 +70,31 @@ fun MainScreen(viewModel: WorkoutViewModel) {
             composable<Screen.Dashboard> {
                 DashboardScreen(
                     viewModel = viewModel,
-                    // Butona basıldığında çalışacak navigasyon tetikleyicisi
                     onStartWorkout = {
-                        navController.navigate(Screen.ActiveWorkout)
+                        // Yeni antrenman başlarken ID göndermeye gerek yok, varsayılan -1 olacak
+                        navController.navigate(Screen.ActiveWorkout())
                     }
                 )
             }
-            composable<Screen.History> {
-                HistoryScreen(viewModel = viewModel)
+            composable<Screen.Workouts> {
+                WorkoutsScreen(
+                    viewModel = viewModel,
+                    onNavigateToWorkout = { sessionId ->
+                        // Tıklanan kartın ID'sini parametre olarak gönderiyoruz
+                        navController.navigate(Screen.ActiveWorkout(sessionId = sessionId))
+                    }
+                )
             }
             composable<Screen.Exercises> {
                 ExercisesScreen(viewModel = viewModel)
             }
-            // Yeni Antrenman Ekranı Rotamız
-            composable<Screen.ActiveWorkout> {
+            composable<Screen.ActiveWorkout> { backStackEntry ->
+                // Gönderdiğimiz parametreyi yakalıyoruz
+                val workoutRoute = backStackEntry.toRoute<Screen.ActiveWorkout>()
+
                 ActiveWorkoutScreen(
-                    viewModel = viewModel, // Bu satırı ekledik
+                    viewModel = viewModel,
+                    sessionId = workoutRoute.sessionId, // Yakalanan ID'yi ekrana iletiyoruz
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

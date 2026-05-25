@@ -34,4 +34,16 @@ interface WorkoutDao {
     // 5. Antrenman Ekranı İçin (Geçmiş Rekor / Contextual History)
     @Query("SELECT * FROM workout_sets WHERE exerciseName = :exerciseName ORDER BY id DESC LIMIT 1")
     suspend fun getLastRecord(exerciseName: String): WorkoutSet?
+
+    // Belirli bir ID'ye sahip SessionWithSets verisini çekmek için (Karta tıklandığında detayı açmak için)
+    @Transaction
+    @Query("SELECT * FROM workout_sessions WHERE id = :sessionId")
+    fun getSessionWithSetsById(sessionId: Int): Flow<SessionWithSets?>
+
+    // Antrenmanı bitirdiğimizde isCompleted durumunu true yapmak için
+    @Query("UPDATE workout_sessions SET isCompleted = 1 WHERE id = :sessionId")
+    suspend fun markSessionAsCompleted(sessionId: Int)
+
+    @Query("DELETE FROM workout_sets WHERE sessionId = :sessionId")
+    suspend fun deleteSetsBySessionId(sessionId: Int)
 }

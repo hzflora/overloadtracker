@@ -20,6 +20,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.overloadtracker.data.WorkoutSet
+import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
 
 // --- Antrenman Programı Veritabanı ---
 data class ProgramExercise(val name: String, val setsAndReps: String, val restTime: String)
@@ -78,11 +80,82 @@ class ActiveExerciseState(val exercise: ProgramExercise) {
 @Composable
 fun ActiveWorkoutScreen(
     viewModel: WorkoutViewModel,
+    sessionId: Int,
     onNavigateBack: () -> Unit
 ) {
+    var currentSessionId by remember { mutableStateOf(sessionId) }
     var selectedSplit by remember { mutableStateOf<String?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
     val activeExercises = remember { mutableStateListOf<ActiveExerciseState>() }
+
+    val coroutineScope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Ekran açıldığında veritabanı işlemlerini yap
+    LaunchedEffect(Unit) {
+        if (currentSessionId == -1) {
+            // Yeni Antrenman: Arka planda DB'de oluştur ve ID'yi al
+            currentSessionId = viewModel.createNewSession()
+            isLoading = false
+        } else {
+            // Var olan Aktif Antrenmanı yükle
+            val sessionData = viewModel.getSessionWithSetsOnce(currentSessionId)
+            if (sessionData != null && sessionData.sets.isNotEmpty()) {
+                val groupedSets = sessionData.sets.groupBy { it.exerciseName }
+                groupedSets.forEach { (exerciseName, sets) ->
+                    // Hareketi listede bul, yoksa geçici oluştur
+                    val exerciseDef = workoutSplits.values.flatten().find { it.name == exerciseName }
+                        ?: ProgramExercise(exerciseName, "-", "-")
+
+                    val activeExercise = ActiveExerciseState(exerciseDef)
+                    activeExercise.sets.clear() // Gelen varsayılan 1 boş seti sil
+
+                    // Veritabanındaki setleri kutulara doldur
+                    sets.sortedBy { it.setNumber }.forEach { dbSet ->
+                        val activeSet = ActiveSetState().apply {
+                            weight = if (dbSet.weight > 0) dbSet.weight.toString() else ""
+                            reps = if (dbSet.reps > 0) dbSet.reps.toString() else ""
+                        }
+                        activeExercise.sets.add(activeSet)
+                    }
+                    activeExercises.add(activeExercise)
+                }
+                selectedSplit = "Kaldığın Yerden Devam" // Seçim ekranını atla
+            }
+            isLoading = false
+        }
+    }
+
+    // Ortak Kaydetme ve Çıkış Fonksiyonu
+    val saveProgressAndExit = { isFinished: Boolean ->
+        coroutineScope.launch {
+            val currentSetsToSave = activeExercises.flatMap { exState ->
+                exState.sets.filter { it.weight.isNotBlank() && it.reps.isNotBlank() }.mapIndexed { index, set ->
+                    WorkoutSet(
+                        sessionId = currentSessionId,
+                        exerciseName = exState.exercise.name,
+                        weight = set.weight.toDoubleOrNull() ?: 0.0,
+                        reps = set.reps.toIntOrNull() ?: 0,
+                        setNumber = index + 1
+                    )
+                }
+            }
+            viewModel.saveProgress(currentSessionId, currentSetsToSave, isFinished)
+            onNavigateBack()
+        }
+    }
+
+    // Telefonun sistem geri tuşuna basıldığında ilerlemeyi kaydet (isCompleted = false)
+    BackHandler {
+        saveProgressAndExit(false)
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     if (selectedSplit == null) {
         Scaffold(
@@ -90,7 +163,7 @@ fun ActiveWorkoutScreen(
                 TopAppBar(
                     title = { Text("Antrenman Türü Seç", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
+                        IconButton(onClick = { saveProgressAndExit(false) }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
                         }
                     }
@@ -106,7 +179,6 @@ fun ActiveWorkoutScreen(
                     Button(
                         onClick = {
                             selectedSplit = splitName
-                            // OTOMATİK DOLDURMA: Seçilen günün hareketlerini listeye ekle
                             workoutSplits[splitName]?.forEach { exercise ->
                                 activeExercises.add(ActiveExerciseState(exercise))
                             }
@@ -125,13 +197,10 @@ fun ActiveWorkoutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("$selectedSplit Antrenmanı", fontWeight = FontWeight.Bold) },
+                title = { Text("$selectedSplit", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        selectedSplit = null
-                        activeExercises.clear() // Geri basınca listeyi temizle
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
+                    IconButton(onClick = { saveProgressAndExit(false) }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Kaydet ve Çık")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -157,28 +226,14 @@ fun ActiveWorkoutScreen(
                     exerciseState = exerciseState,
                     viewModel = viewModel,
                     onAddSetClick = { exerciseState.sets.add(ActiveSetState()) },
-                    onRemoveExerciseClick = { activeExercises.remove(exerciseState) } // Hareketi Silme
+                    onRemoveExerciseClick = { activeExercises.remove(exerciseState) }
                 )
             }
 
             if (activeExercises.isNotEmpty()) {
                 item {
                     Button(
-                        onClick = {
-                            val completedSets = activeExercises.flatMap { exState ->
-                                exState.sets.filter { it.weight.isNotBlank() && it.reps.isNotBlank() }.mapIndexed { index, set ->
-                                    WorkoutSet(
-                                        sessionId = 0,
-                                        exerciseName = exState.exercise.name,
-                                        weight = set.weight.toDoubleOrNull() ?: 0.0,
-                                        reps = set.reps.toIntOrNull() ?: 0,
-                                        setNumber = index + 1 // Aradan set silinmesine karşı sıralamayı dinamik hesapla
-                                    )
-                                }
-                            }
-                            viewModel.saveActiveWorkout(completedSets)
-                            onNavigateBack()
-                        },
+                        onClick = { saveProgressAndExit(true) }, // isFinished = true
                         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp).height(60.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
