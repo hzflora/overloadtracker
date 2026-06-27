@@ -9,20 +9,16 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface WorkoutDao {
 
-    // 1. Yeni Antrenman Oturumu Ekleme
     @Insert
     suspend fun insertSession(session: WorkoutSession): Long
 
-    // 2. Antrenmana Ait Seti Ekleme
     @Insert
     suspend fun insertSet(workoutSet: WorkoutSet)
 
-    // 3. Geçmiş Sekmesi İçin (Oturumlar ve içindeki setler tek seferde gelir)
     @Transaction
     @Query("SELECT * FROM workout_sessions ORDER BY date DESC")
     fun getAllSessionsWithSets(): Flow<List<SessionWithSets>>
 
-    // 4. Ana Ekran İçin (Son 7 Günlük Hacim)
     @Query("""
         SELECT SUM(weight * reps) 
         FROM workout_sets 
@@ -31,16 +27,13 @@ interface WorkoutDao {
     """)
     fun getWeeklyVolume(oneWeekAgo: Long): Flow<Double?>
 
-    // 5. Antrenman Ekranı İçin (Geçmiş Rekor / Contextual History)
     @Query("SELECT * FROM workout_sets WHERE exerciseName = :exerciseName ORDER BY id DESC LIMIT 1")
     suspend fun getLastRecord(exerciseName: String): WorkoutSet?
 
-    // Belirli bir ID'ye sahip SessionWithSets verisini çekmek için (Karta tıklandığında detayı açmak için)
     @Transaction
     @Query("SELECT * FROM workout_sessions WHERE id = :sessionId")
     fun getSessionWithSetsById(sessionId: Int): Flow<SessionWithSets?>
 
-    // Antrenmanı bitirdiğimizde isCompleted durumunu true yapmak için
     @Query("UPDATE workout_sessions SET isCompleted = 1 WHERE id = :sessionId")
     suspend fun markSessionAsCompleted(sessionId: Int)
 
@@ -49,4 +42,30 @@ interface WorkoutDao {
 
     @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
     suspend fun deleteSessionById(sessionId: Int)
+
+    // --- YENİ EKLENEN RUTİN (PROGRAM) SORGULARI ---
+    @Insert
+    suspend fun insertRoutine(routine: Routine): Long
+
+    @Insert
+    suspend fun insertRoutineExercise(exercise: RoutineExercise)
+
+    @Query("DELETE FROM routines WHERE id = :routineId")
+    suspend fun deleteRoutine(routineId: Int)
+
+    @Query("DELETE FROM routine_exercises WHERE routineId = :routineId")
+    suspend fun deleteExercisesByRoutineId(routineId: Int)
+
+    @Query("DELETE FROM routine_exercises WHERE id = :exerciseId")
+    suspend fun deleteRoutineExerciseById(exerciseId: Int)
+
+    @androidx.room.Update
+    suspend fun updateRoutineExercise(exercise: RoutineExercise)
+
+    @androidx.room.Update
+    suspend fun updateRoutineExercises(exercises: List<RoutineExercise>)
+
+    @Transaction
+    @Query("SELECT * FROM routines")
+    fun getAllRoutinesWithExercises(): Flow<List<RoutineWithExercises>>
 }

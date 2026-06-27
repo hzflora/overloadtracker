@@ -1,5 +1,6 @@
 package com.example.overloadtracker.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,62 +20,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.overloadtracker.data.RoutineExercise
 import com.example.overloadtracker.data.WorkoutSet
-import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
 
-// --- Antrenman Programı Veritabanı ---
-data class ProgramExercise(val name: String, val setsAndReps: String, val restTime: String)
-
-val workoutSplits = mapOf(
-    "PUSH" to listOf(
-        ProgramExercise("Bench Press", "2+2 x 10", "2.5 - 3 Dakika"),
-        ProgramExercise("Incline Press","3 x 10", "2 - 3 Dakika"),
-        ProgramExercise("Pec Deck Fly","3 x Failure", "60 - 90 Saniye"),
-        ProgramExercise("Shoulder Press","1+3 x Failure", "2.5 - 3 Dakika"),
-        ProgramExercise("Lateral Raise","3 x 12", "60 - 90 Saniye"),
-        ProgramExercise("Skull Crusher","3 x 10", "60 - 90 Saniye"),
-        ProgramExercise("Triceps Pushdown","2 x Drop", "90 Saniye")
-    ),
-    "PULL" to listOf(
-        ProgramExercise("Lat Pulldown", "2+2 x 10", "2 - 3 Dakika"),
-        ProgramExercise("Rope Pullover","3 x 10", "60 - 90 Saniye"),
-        ProgramExercise("Seated Cable Row","3 x 10", "2 - 3 Dakika"),
-        ProgramExercise("T-Bar Row","1+2 x Failure", "2.5 - 3 Dakika"),
-        ProgramExercise("Reverse Fly","3 x 10", "60 - 90 Saniye"),
-        ProgramExercise("Dumbbell / Cable Curl","3 x Failure", "60 - 90 Saniye"),
-        ProgramExercise("Hammer Curl", "3 x 10","60 - 90 Saniye")
-    ),
-    "LOWER" to listOf(
-        ProgramExercise("Leg Press","2+2 x 10", "2.5 - 3 Dakika"),
-        ProgramExercise("Hack Squat","2 x 12", "2.5 - 3 Dakika"),
-        ProgramExercise("Leg Extension","2 x Failure", "90 Saniye"),
-        ProgramExercise("Leg Curl","2 x Failure", "90 Saniye"),
-        ProgramExercise("Calf Raise","2 x Failure", "60 - 90 Saniye"),
-        ProgramExercise("Karın (Leg Raise / Crunch)","3 x Failure", "60 Saniye")
-    ),
-    "UPPER" to listOf(
-        ProgramExercise("Incline Dumbbell Press","2+2 x Failure", "2.5 - 3 Dakika"),
-        ProgramExercise("Pec Deck Fly","3 x Failure", "60 - 90 Saniye"),
-        ProgramExercise("Dumbbell Press (Omuz)","2 x Failure", "2.5 - 3 Dakika"),
-        ProgramExercise("Lat Pulldown","1+2 x 10", "2 - 3 Dakika"),
-        ProgramExercise("Row Alternatifi","1+2 x Failure", "2.5 - 3 Dakika"),
-        ProgramExercise("Lateral Raise","3 x 12", "60 - 90 Saniye"),
-        ProgramExercise("Triceps Pushdown","3 x 10", "60 - 90 Saniye"),
-        ProgramExercise("Dumbbell Curl","3 x 10", "60 - 90 Saniye")
-    )
-)
-
-// --- Arayüz State Sınıfları ---
 class ActiveSetState {
     var weight by mutableStateOf("")
     var reps by mutableStateOf("")
 }
 
-class ActiveExerciseState(val exercise: ProgramExercise) {
+class ActiveExerciseState(val exercise: RoutineExercise) {
     val sets = mutableStateListOf(ActiveSetState())
 }
-// ---------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,35 +40,32 @@ fun ActiveWorkoutScreen(
     sessionId: Int,
     onNavigateBack: () -> Unit
 ) {
+    val routines by viewModel.routines.collectAsState()
+
     var currentSessionId by remember { mutableStateOf(sessionId) }
     var selectedSplit by remember { mutableStateOf<String?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
-    var showProgramDialog by remember { mutableStateOf(false) } // Egzersizleri göreceğimiz pencere için
+    var showProgramDialog by remember { mutableStateOf(false) }
     val activeExercises = remember { mutableStateListOf<ActiveExerciseState>() }
 
     val coroutineScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
 
-    // Ekran açıldığında veritabanı işlemlerini yap
     LaunchedEffect(Unit) {
         if (currentSessionId == -1) {
-            // Yeni Antrenman: Arka planda DB'de oluştur ve ID'yi al
             currentSessionId = viewModel.createNewSession()
             isLoading = false
         } else {
-            // Var olan Aktif Antrenmanı yükle
             val sessionData = viewModel.getSessionWithSetsOnce(currentSessionId)
             if (sessionData != null && sessionData.sets.isNotEmpty()) {
-
-                // YENİ: İlk hareketten antrenmanın türünü (PUSH, PULL vb.) tespit et
                 val firstExName = sessionData.sets.first().exerciseName
-                val detectedSplit = workoutSplits.entries.find { it.value.any { ex -> ex.name == firstExName } }?.key ?: "Antrenman"
-                selectedSplit = detectedSplit // Artık "Kaldığın Yerden Devam" yerine "PUSH" vs. yazacak
+                val detectedSplit = routines.find { it.exercises.any { ex -> ex.name == firstExName } }?.routine?.name ?: "Antrenman"
+                selectedSplit = detectedSplit
 
                 val groupedSets = sessionData.sets.groupBy { it.exerciseName }
                 groupedSets.forEach { (exerciseName, sets) ->
-                    val exerciseDef = workoutSplits.values.flatten().find { it.name == exerciseName }
-                        ?: ProgramExercise(exerciseName, "-", "-")
+                    val exerciseDef = routines.flatMap { it.exercises }.find { it.name == exerciseName }
+                        ?: RoutineExercise(name = exerciseName, routineId = 0, setsAndReps = "-", restTime = "-")
 
                     val activeExercise = ActiveExerciseState(exerciseDef)
                     activeExercise.sets.clear()
@@ -130,7 +84,6 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    // Ortak Kaydetme ve Çıkış Fonksiyonu
     val saveProgressAndExit = { isFinished: Boolean ->
         coroutineScope.launch {
             val currentSetsToSave = activeExercises.flatMap { exState ->
@@ -149,15 +102,10 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    // Telefonun sistem geri tuşuna basıldığında ilerlemeyi kaydet (isCompleted = false)
-    BackHandler {
-        saveProgressAndExit(false)
-    }
+    BackHandler { saveProgressAndExit(false) }
 
     if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
 
@@ -171,7 +119,6 @@ fun ActiveWorkoutScreen(
                             Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
                         }
                     }
-                    // BURADA Egzersizler butonu OLMAYACAK
                 )
             }
         ) { paddingValues ->
@@ -180,18 +127,18 @@ fun ActiveWorkoutScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                workoutSplits.keys.forEach { splitName ->
+                routines.forEach { routineData ->
                     Button(
                         onClick = {
-                            selectedSplit = splitName
-                            workoutSplits[splitName]?.forEach { exercise ->
+                            selectedSplit = routineData.routine.name
+                            routineData.exercises.forEach { exercise ->
                                 activeExercises.add(ActiveExerciseState(exercise))
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(80.dp).padding(vertical = 8.dp),
                         shape = MaterialTheme.shapes.large
                     ) {
-                        Text(text = "$splitName GÜNÜ", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "${routineData.routine.name} GÜNÜ", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -208,7 +155,6 @@ fun ActiveWorkoutScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Kaydet ve Çık")
                     }
                 },
-                // EGZERSİZLER BUTONU BURADA OLMALI
                 actions = {
                     TextButton(onClick = { showProgramDialog = true }) {
                         Text("Egzersizler", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -244,7 +190,7 @@ fun ActiveWorkoutScreen(
             if (activeExercises.isNotEmpty()) {
                 item {
                     Button(
-                        onClick = { saveProgressAndExit(true) }, // isFinished = true
+                        onClick = { saveProgressAndExit(true) },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp).height(60.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
@@ -265,14 +211,12 @@ fun ActiveWorkoutScreen(
                 Text("$selectedSplit Hareketleri", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // YENİ: Tüm hareketler yerine sadece o günün (selectedSplit) hareketlerini çekiyoruz
-                val currentExercises = workoutSplits[selectedSplit] ?: emptyList()
+                val currentExercises = routines.find { it.routine.name == selectedSplit }?.exercises ?: emptyList()
 
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(currentExercises) { exercise ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                // Eğer hareket zaten listede yoksa ekle
                                 if (activeExercises.none { it.exercise.name == exercise.name }) {
                                     activeExercises.add(ActiveExerciseState(exercise))
                                 }
@@ -290,14 +234,13 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    // 2. İsteğin: Sayfa kapanmadan o günün programını liste halinde görsün
     if (showProgramDialog) {
         AlertDialog(
             onDismissRequest = { showProgramDialog = false },
             title = { Text("$selectedSplit Programı", fontWeight = FontWeight.Bold) },
             text = {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val programExercises = workoutSplits[selectedSplit] ?: emptyList()
+                    val programExercises = routines.find { it.routine.name == selectedSplit }?.exercises ?: emptyList()
                     items(programExercises) { ex ->
                         Column {
                             Text(text = "• ${ex.name}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -312,9 +255,7 @@ fun ActiveWorkoutScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showProgramDialog = false }) {
-                    Text("Kapat")
-                }
+                TextButton(onClick = { showProgramDialog = false }) { Text("Kapat") }
             }
         )
     }
@@ -338,7 +279,6 @@ fun ActiveExerciseCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Hareket Adı ve Silme Butonu (Çarpı)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -363,7 +303,7 @@ fun ActiveExerciseCard(
                 Text("SET", modifier = Modifier.weight(0.4f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                 Text("KG", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                 Text("TEKRAR", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                Spacer(modifier = Modifier.weight(0.4f)) // Çöp kutusu için boşluk hizalaması
+                Spacer(modifier = Modifier.weight(0.4f))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -395,7 +335,6 @@ fun SetRow(
     previousRecord: WorkoutSet?,
     onRemoveSetClick: () -> Unit
 ) {
-    // Önceki kayıtları kutulara doğru dağıtıyoruz
     val weightPlaceholder = previousRecord?.weight?.toString() ?: "-"
     val repsPlaceholder = previousRecord?.reps?.toString() ?: "10"
 
@@ -426,7 +365,6 @@ fun SetRow(
             shape = MaterialTheme.shapes.medium
         )
 
-        // Yanlış eklenen seti silme butonu
         IconButton(onClick = onRemoveSetClick, modifier = Modifier.weight(0.4f)) {
             Icon(Icons.Default.Delete, contentDescription = "Seti Sil", tint = MaterialTheme.colorScheme.error)
         }

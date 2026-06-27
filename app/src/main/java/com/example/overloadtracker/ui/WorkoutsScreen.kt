@@ -20,32 +20,20 @@ import java.util.*
 @Composable
 fun WorkoutsScreen(viewModel: WorkoutViewModel, onNavigateToWorkout: (Int) -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
+    val routines by viewModel.routines.collectAsState()
 
-    // Sekmeler için state (0: Aktif, 1: Geçmiş)
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Aktif", "Geçmiş")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    androidx.compose.foundation.layout.Row(
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.example.overloadtracker.R.drawable.logo),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(32.dp).padding(end = 8.dp) // Yazıyla arasına boşluk verdik
-                        )
-                        Text("Antrenmanlar", fontWeight = FontWeight.Bold)
-                    }
-                },
+                title = { Text("Antrenmanlar", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            // Sekme Çubuğu
             TabRow(selectedTabIndex = selectedTabIndex) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
@@ -56,51 +44,33 @@ fun WorkoutsScreen(viewModel: WorkoutViewModel, onNavigateToWorkout: (Int) -> Un
                 }
             }
 
-            // Duruma göre listeyi filtreleme
             val filteredSessions = if (selectedTabIndex == 0) {
-                uiState.sessions.filter { !it.session.isCompleted } // Aktif olanlar
+                uiState.sessions.filter { !it.session.isCompleted }
             } else {
-                uiState.sessions.filter { it.session.isCompleted }  // Bitenler
+                uiState.sessions.filter { it.session.isCompleted }
             }
 
             if (filteredSessions.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (selectedTabIndex == 0) "Devam eden aktif bir antrenman yok." else "Geçmiş antrenman kaydınız bulunmuyor.",
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = if (selectedTabIndex == 0) "Devam eden aktif bir antrenman yok." else "Geçmiş antrenman kaydınız bulunmuyor.", color = MaterialTheme.colorScheme.secondary)
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(filteredSessions) { sessionWithSets ->
-                        val dateString = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("tr"))
-                            .format(Date(sessionWithSets.session.date))
-
+                        val dateString = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("tr")).format(Date(sessionWithSets.session.date))
                         val totalVolume = sessionWithSets.sets.sumOf { it.weight * it.reps }
                         val totalSets = sessionWithSets.sets.size
 
-                        // YENİ: Antrenman Türünü (Split) Tespit Etme Mantığı
                         val firstExerciseName = sessionWithSets.sets.firstOrNull()?.exerciseName
                         val detectedSplit = if (firstExerciseName != null) {
-                            // workoutSplits haritasından bu hareketin hangi güne ait olduğunu buluyoruz
-                            val splitKey = workoutSplits.entries.find { it.value.any { ex -> ex.name == firstExerciseName } }?.key
+                            val splitKey = routines.find { it.exercises.any { ex -> ex.name == firstExerciseName } }?.routine?.name
                             if (splitKey != null) "$splitKey Antrenmanı" else "Serbest Antrenman"
                         } else {
-                            "Boş Antrenman" // Eğer henüz hiç set girilmediyse
+                            "Boş Antrenman"
                         }
 
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onNavigateToWorkout(sessionWithSets.session.id)
-                                },
+                            modifier = Modifier.fillMaxWidth().clickable { onNavigateToWorkout(sessionWithSets.session.id) },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Row(
@@ -108,45 +78,19 @@ fun WorkoutsScreen(viewModel: WorkoutViewModel, onNavigateToWorkout: (Int) -> Un
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Sol Taraf: Bilgiler
                                 Column(modifier = Modifier.weight(1f)) {
-                                    // YENİ: Başlık Olarak Antrenman Türü
-                                    Text(
-                                        text = detectedSplit,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 18.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    Text(text = detectedSplit, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.height(4.dp))
-
-                                    // Tarih ve Diğer Bilgiler
                                     Text(text = dateString, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Toplam Hacim: $totalVolume kg  |  Set: $totalSets",
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
+                                    Text(text = "Toplam Hacim: $totalVolume kg  |  Set: $totalSets", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
                                     if (selectedTabIndex == 0) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Devam Etmek İçin Dokun ➔",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
+                                        Text(text = "Devam Etmek İçin Dokun ➔", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
-
-                                // Sağ Taraf: Silme Butonu
-                                IconButton(
-                                    onClick = { viewModel.deleteSession(sessionWithSets.session.id) }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Antrenmanı Sil",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
+                                IconButton(onClick = { viewModel.deleteSession(sessionWithSets.session.id) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Antrenmanı Sil", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
